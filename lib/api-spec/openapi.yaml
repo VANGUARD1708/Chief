@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: CINELOOP API - TMDB proxy for movie/TV content
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tmdb
+    description: TMDB proxy endpoints
 paths:
   /healthz:
     get:
@@ -24,6 +26,196 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /tmdb/trending/movie:
+    get:
+      operationId: getTrendingMovies
+      tags: [tmdb]
+      summary: Get trending movies
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Trending movies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/trending/all:
+    get:
+      operationId: getTrendingAll
+      tags: [tmdb]
+      summary: Get trending all media
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Trending all
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/trending/tv:
+    get:
+      operationId: getTrendingTv
+      tags: [tmdb]
+      summary: Get trending TV shows
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Trending TV
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/anime:
+    get:
+      operationId: getAnime
+      tags: [tmdb]
+      summary: Get anime content
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Anime content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/search:
+    get:
+      operationId: searchTmdb
+      tags: [tmdb]
+      summary: Search movies and TV shows
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/videos:
+    get:
+      operationId: getTmdbVideos
+      tags: [tmdb]
+      summary: Get videos/trailers for a movie or TV show
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [movie, tv]
+      responses:
+        "200":
+          description: Videos list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbVideosResponse"
+  /tmdb/discover:
+    get:
+      operationId: discoverTmdb
+      tags: [tmdb]
+      summary: Discover movies or TV by genre
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [movie, tv]
+        - name: genre
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Discover results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbPagedResponse"
+  /tmdb/genres:
+    get:
+      operationId: getTmdbGenres
+      tags: [tmdb]
+      summary: Get genre list for movies or TV
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [movie, tv]
+      responses:
+        "200":
+          description: Genre list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbGenresResponse"
+  /tmdb/details:
+    get:
+      operationId: getTmdbDetails
+      tags: [tmdb]
+      summary: Get details for a movie or TV show
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [movie, tv]
+      responses:
+        "200":
+          description: Media details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TmdbMediaDetail"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +225,157 @@ components:
           type: string
       required:
         - status
-
+    TmdbMediaItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        name:
+          type: string
+        original_title:
+          type: string
+        original_name:
+          type: string
+        overview:
+          type: string
+        poster_path:
+          type: string
+          nullable: true
+        backdrop_path:
+          type: string
+          nullable: true
+        media_type:
+          type: string
+        genre_ids:
+          type: array
+          items:
+            type: integer
+        release_date:
+          type: string
+        first_air_date:
+          type: string
+        vote_average:
+          type: number
+        vote_count:
+          type: integer
+        popularity:
+          type: number
+        adult:
+          type: boolean
+      required:
+        - id
+    TmdbPagedResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbMediaItem"
+        total_pages:
+          type: integer
+        total_results:
+          type: integer
+      required:
+        - page
+        - results
+        - total_pages
+        - total_results
+    TmdbVideo:
+      type: object
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        site:
+          type: string
+        type:
+          type: string
+        official:
+          type: boolean
+      required:
+        - id
+        - key
+        - name
+        - site
+        - type
+    TmdbVideosResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbVideo"
+      required:
+        - id
+        - results
+    TmdbGenre:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+        - id
+        - name
+    TmdbGenresResponse:
+      type: object
+      properties:
+        genres:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbGenre"
+      required:
+        - genres
+    TmdbMediaDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        name:
+          type: string
+        overview:
+          type: string
+        poster_path:
+          type: string
+          nullable: true
+        backdrop_path:
+          type: string
+          nullable: true
+        genres:
+          type: array
+          items:
+            $ref: "#/components/schemas/TmdbGenre"
+        release_date:
+          type: string
+        first_air_date:
+          type: string
+        vote_average:
+          type: number
+        vote_count:
+          type: integer
+        runtime:
+          type: integer
+        number_of_seasons:
+          type: integer
+        number_of_episodes:
+          type: integer
+        status:
+          type: string
+        tagline:
+          type: string
+        homepage:
+          type: string
+      required:
+        - id

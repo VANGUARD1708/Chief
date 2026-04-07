@@ -5,7 +5,9 @@
  * CINELOOP API - TMDB proxy for movie/TV content
  * OpenAPI spec version: 0.1.0
  */
+import type { GetTmdbVideosType } from "./getTmdbVideosType";
 
-export interface HealthStatus {
-  status: string;
-}
+export type GetTmdbVideosParams = {
+  id: number;
+  type: GetTmdbVideosType;
+};
