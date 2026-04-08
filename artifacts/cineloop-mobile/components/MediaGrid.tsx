@@ -11,9 +11,8 @@ import {
   View,
 } from "react-native";
 
-import { useUserData } from "@/contexts/UserDataContext";
+import { useUserData, type MediaItem } from "@/contexts/UserDataContext";
 import { useColors } from "@/hooks/useColors";
-import type { MediaItem } from "./TrailerCard";
 
 const NUM_COLS = 2;
 const GAP = 8;
@@ -63,14 +62,14 @@ function GridItem({ item, onPress }: { item: MediaItem; onPress?: () => void }) 
         )}
       </View>
       <TouchableOpacity
-        style={[styles.likeBtn, liked && { backgroundColor: "rgba(244,62,92,0.85)" }]}
+        style={[styles.likeBtn, liked && { backgroundColor: "rgba(244,62,92,0.85)", borderColor: "transparent" }]}
         onPress={async () => {
           await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          toggleLike(item.id);
+          toggleLike(item);
         }}
         hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
       >
-        <Feather name="heart" size={14} color={liked ? "#fff" : "#fff"} />
+        <Feather name="heart" size={13} color={liked ? "#fff" : "rgba(255,255,255,0.8)"} />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -126,7 +125,7 @@ const styles = StyleSheet.create({
   },
   cardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: "rgba(0,0,0,0.3)",
   },
   cardBottom: {
     position: "absolute",
@@ -159,7 +158,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
