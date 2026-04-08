@@ -1,6 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import { useGetTrendingAll } from "@workspace/api-client-react";
-import React, { useMemo } from "react";
+import React, { useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -9,55 +8,45 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import type { MediaItem } from "@/components/TrailerCard";
-import { useUserData } from "@/contexts/UserDataContext";
+import { useUserData, type MediaItem } from "@/contexts/UserDataContext";
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const ITEM_SIZE = (SCREEN_WIDTH - 48) / 3;
+const THUMB_SIZE = (SCREEN_WIDTH - 48) / 3;
 
-function SavedMovieThumb({ item }: { item: MediaItem }) {
+function MovieThumb({ item }: { item: MediaItem }) {
   const colors = useColors();
   const posterUrl = item.poster_path
     ? `https://image.tmdb.org/t/p/w185${item.poster_path}`
     : null;
+  const title = item.title ?? item.name ?? "";
   return (
-    <View style={[styles.thumb, { width: ITEM_SIZE, height: ITEM_SIZE * 1.4 }]}>
+    <View style={[styles.thumb, { width: THUMB_SIZE, height: THUMB_SIZE * 1.45 }]}>
       {posterUrl ? (
         <Image source={{ uri: posterUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
       ) : (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: colors.muted, alignItems: "center", justifyContent: "center" },
-          ]}
-        >
-          <Feather name="film" size={22} color={colors.mutedForeground} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.muted, alignItems: "center", justifyContent: "center" }]}>
+          <Feather name="film" size={20} color={colors.mutedForeground} />
         </View>
       )}
+      <View style={styles.thumbOverlay} />
+      <Text style={styles.thumbTitle} numberOfLines={2}>{title}</Text>
     </View>
   );
 }
 
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: string;
-}) {
+function StatCard({ icon, value, label, accent }: { icon: string; value: number; label: string; accent?: boolean }) {
   const colors = useColors();
   return (
     <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Feather name={icon as never} size={18} color={colors.primary} />
-      <Text style={[styles.statValue, { color: colors.foreground }]}>{value}</Text>
+      <Feather name={icon as never} size={16} color={accent ? colors.primary : colors.mutedForeground} />
+      <Text style={[styles.statValue, { color: accent ? colors.primary : colors.foreground }]}>{value}</Text>
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
     </View>
   );
@@ -66,93 +55,117 @@ function StatCard({
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { likedIds, savedIds } = useUserData();
-  const { data } = useGetTrendingAll({ page: 1 });
+  const { username, setUsername, likedItems, savedItems } = useUserData();
+  const [activeTab, setActiveTab] = useState<"likes" | "saves">("likes");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(username);
 
-  const allItems = (data?.results ?? []) as MediaItem[];
-
-  const savedItems = useMemo(
-    () => allItems.filter((item) => savedIds.has(item.id)),
-    [allItems, savedIds]
-  );
-
-  const likedItems = useMemo(
-    () => allItems.filter((item) => likedIds.has(item.id)),
-    [allItems, likedIds]
-  );
-
+  const items = activeTab === "likes" ? likedItems : savedItems;
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
+
+  const confirmEdit = () => {
+    const t = draft.trim();
+    if (t) setUsername(t);
+    setEditing(false);
+  };
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingBottom: 100 }}
+      contentContainerStyle={{ paddingBottom: 110 }}
       showsVerticalScrollIndicator={false}
     >
-      <View style={[styles.heroSection, { paddingTop: topPad + 24 }]}>
+      {/* Hero */}
+      <View style={[styles.hero, { paddingTop: topPad + 20 }]}>
         <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <Text style={styles.avatarText}>C</Text>
+          <Text style={styles.avatarText}>
+            {(username[0] ?? "C").toUpperCase()}
+          </Text>
         </View>
-        <Text style={[styles.username, { color: colors.foreground }]}>CineLoop User</Text>
-        <Text style={[styles.bio, { color: colors.mutedForeground }]}>
-          Discovering the best trailers
-        </Text>
+
+        {editing ? (
+          <View style={styles.editRow}>
+            <TextInput
+              autoFocus
+              value={draft}
+              onChangeText={setDraft}
+              onSubmitEditing={confirmEdit}
+              style={[styles.nameInput, { color: colors.foreground, borderBottomColor: colors.primary }]}
+              maxLength={28}
+              returnKeyType="done"
+            />
+            <TouchableOpacity onPress={confirmEdit} style={styles.editConfirm}>
+              <Feather name="check" size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setDraft(username); setEditing(false); }}>
+              <Feather name="x" size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.usernameRow}
+            onPress={() => { setDraft(username); setEditing(true); }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.username, { color: colors.foreground }]}>{username}</Text>
+            <Feather name="edit-2" size={14} color={colors.mutedForeground} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        )}
+        <Text style={[styles.bio, { color: colors.mutedForeground }]}>CINELOOP member</Text>
       </View>
 
+      {/* Stats */}
       <View style={styles.statsRow}>
-        <StatCard label="Liked" value={likedIds.size} icon="heart" />
-        <StatCard label="Saved" value={savedIds.size} icon="bookmark" />
-        <StatCard label="Watched" value={likedIds.size + savedIds.size} icon="eye" />
+        <StatCard icon="heart" value={likedItems.length} label="Liked" accent />
+        <StatCard icon="bookmark" value={savedItems.length} label="Saved" />
+        <StatCard icon="eye" value={likedItems.length + savedItems.length} label="Watched" />
       </View>
 
-      {savedItems.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Feather name="bookmark" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Saved</Text>
-            <Text style={[styles.sectionCount, { color: colors.mutedForeground }]}>
-              {savedIds.size}
+      {/* Tabs */}
+      <View style={[styles.tabsRow, { borderBottomColor: colors.border }]}>
+        {(["likes", "saves"] as const).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tab, activeTab === tab && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Feather
+              name={tab === "likes" ? "heart" : "bookmark"}
+              size={15}
+              color={activeTab === tab ? colors.primary : colors.mutedForeground}
+            />
+            <Text style={[styles.tabText, { color: activeTab === tab ? colors.primary : colors.mutedForeground }]}>
+              {tab === "likes" ? `Liked (${likedItems.length})` : `Saved (${savedItems.length})`}
             </Text>
-          </View>
-          <FlatList
-            data={savedItems}
-            keyExtractor={(item) => String(item.id)}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-            renderItem={({ item }) => <SavedMovieThumb item={item} />}
-          />
-        </View>
-      )}
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {likedItems.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Feather name="heart" size={16} color={colors.primary} />
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Liked</Text>
-            <Text style={[styles.sectionCount, { color: colors.mutedForeground }]}>
-              {likedIds.size}
-            </Text>
-          </View>
-          <FlatList
-            data={likedItems}
-            keyExtractor={(item) => String(item.id)}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-            renderItem={({ item }) => <SavedMovieThumb item={item} />}
+      {/* Grid */}
+      {items.length > 0 ? (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          numColumns={3}
+          scrollEnabled={false}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.grid}
+          renderItem={({ item }) => <MovieThumb item={item} />}
+        />
+      ) : (
+        <View style={styles.empty}>
+          <Feather
+            name={activeTab === "likes" ? "heart" : "bookmark"}
+            size={40}
+            color={colors.mutedForeground}
           />
-        </View>
-      )}
-
-      {savedItems.length === 0 && likedItems.length === 0 && (
-        <View style={styles.emptyState}>
-          <Feather name="film" size={44} color={colors.mutedForeground} />
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            Your collection is empty
+            {activeTab === "likes" ? "No likes yet" : "No saves yet"}
           </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            Like or save trailers to build your list
+            {activeTab === "likes"
+              ? "Tap the heart on any trailer in the feed"
+              : "Tap the bookmark on any trailer to save it"}
           </Text>
         </View>
       )}
@@ -161,13 +174,11 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  heroSection: {
+  container: { flex: 1 },
+  hero: {
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   avatar: {
     width: 80,
@@ -179,23 +190,42 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: "#fff",
-    fontSize: 32,
+    fontSize: 34,
     fontFamily: "Inter_700Bold",
+  },
+  usernameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
   },
   username: {
     fontSize: 20,
     fontFamily: "Inter_700Bold",
+  },
+  editRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginBottom: 4,
   },
+  nameInput: {
+    fontSize: 20,
+    fontFamily: "Inter_700Bold",
+    borderBottomWidth: 2,
+    paddingBottom: 2,
+    minWidth: 140,
+  },
+  editConfirm: { marginLeft: 4 },
   bio: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_400Regular",
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 16,
     gap: 10,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   statCard: {
     flex: 1,
@@ -206,49 +236,70 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: "Inter_400Regular",
   },
-  section: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
+  tabsRow: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
+  tab: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
   },
-  sectionCount: {
+  tabText: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_600SemiBold",
   },
-  horizontalList: {
-    paddingHorizontal: 16,
+  grid: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
     gap: 8,
+  },
+  gridRow: {
+    gap: 8,
+    marginBottom: 8,
   },
   thumb: {
     borderRadius: 8,
     overflow: "hidden",
     backgroundColor: "#0a0a0a",
   },
-  emptyState: {
+  thumbOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  thumbTitle: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    right: 6,
+    color: "#fff",
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    lineHeight: 13,
+  },
+  empty: {
     alignItems: "center",
-    paddingTop: 60,
-    gap: 12,
+    paddingTop: 50,
+    gap: 10,
     paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: "Inter_700Bold",
     textAlign: "center",
   },
@@ -256,6 +307,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });

@@ -14,24 +14,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useUserData } from "@/contexts/UserDataContext";
+import { useUserData, type MediaItem } from "@/contexts/UserDataContext";
 import { useColors } from "@/hooks/useColors";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+export type { MediaItem };
 
-export interface MediaItem {
-  id: number;
-  title?: string;
-  name?: string;
-  overview?: string;
-  poster_path?: string | null;
-  backdrop_path?: string | null;
-  media_type?: string;
-  vote_average?: number;
-  release_date?: string;
-  first_air_date?: string;
-  trailerKey?: string | null;
-}
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface TrailerCardProps {
   item: MediaItem;
@@ -42,23 +30,24 @@ function ActionButton({
   icon,
   label,
   active,
-  color,
+  activeColor,
   onPress,
 }: {
   icon: string;
   label: string;
   active?: boolean;
-  color: string;
+  activeColor: string;
   onPress: () => void;
 }) {
   const colors = useColors();
   return (
     <TouchableOpacity style={styles.actionBtn} onPress={onPress} activeOpacity={0.7}>
-      <Feather
-        name={icon as never}
-        size={26}
-        color={active ? color : "#ffffff"}
-      />
+      <View style={[
+        styles.actionCircle,
+        active && { backgroundColor: activeColor + "33", borderColor: activeColor },
+      ]}>
+        <Feather name={icon as never} size={24} color={active ? activeColor : "#ffffff"} />
+      </View>
       <Text style={[styles.actionLabel, { color: colors.mutedForeground }]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -85,23 +74,23 @@ export default function TrailerCard({ item, isActive }: TrailerCardProps) {
   const openTrailer = useCallback(async () => {
     if (!item.trailerKey) return;
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const url = `https://www.youtube.com/watch?v=${item.trailerKey}`;
-    await WebBrowser.openBrowserAsync(url, {
+    await WebBrowser.openBrowserAsync(`https://www.youtube.com/watch?v=${item.trailerKey}`, {
       presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
     });
   }, [item.trailerKey]);
 
   const handleLike = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleLike(item.id);
-  }, [item.id, toggleLike]);
+    toggleLike(item);
+  }, [item, toggleLike]);
 
   const handleSave = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toggleSave(item.id);
-  }, [item.id, toggleSave]);
+    toggleSave(item);
+  }, [item, toggleSave]);
 
   const cardHeight = Platform.OS === "web" ? SCREEN_HEIGHT - 84 : SCREEN_HEIGHT;
+  const bottomPad = insets.bottom + (Platform.OS === "web" ? 90 : 85);
 
   return (
     <View style={[styles.card, { height: cardHeight }]}>
@@ -113,35 +102,32 @@ export default function TrailerCard({ item, isActive }: TrailerCardProps) {
       <View style={styles.overlay} />
 
       {item.trailerKey && (
-        <Pressable style={styles.playButton} onPress={openTrailer}>
+        <Pressable style={styles.playHitArea} onPress={openTrailer}>
           <View style={styles.playCircle}>
-            <Feather name="play" size={32} color="#ffffff" />
+            <Feather name="play" size={30} color="#ffffff" />
           </View>
         </Pressable>
       )}
 
-      <View
-        style={[
-          styles.bottomArea,
-          { paddingBottom: insets.bottom + (Platform.OS === "web" ? 90 : 90) },
-        ]}
-      >
+      <View style={[styles.bottomArea, { paddingBottom: bottomPad }]}>
         <View style={styles.metaCol}>
           <View style={styles.badges}>
             <View style={[styles.badge, { backgroundColor: colors.primary }]}>
               <Text style={styles.badgeText}>{isMovie ? "MOVIE" : "SERIES"}</Text>
             </View>
             {rating && (
-              <View style={[styles.badge, { backgroundColor: "rgba(0,0,0,0.6)" }]}>
+              <View style={[styles.badge, { backgroundColor: "rgba(0,0,0,0.7)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" }]}>
                 <Feather name="star" size={10} color="#f5c518" />
-                <Text style={[styles.badgeText, { marginLeft: 3 }]}>{rating}</Text>
+                <Text style={[styles.badgeText, { marginLeft: 3, color: "#f5c518" }]}>{rating}</Text>
               </View>
             )}
+            {year ? (
+              <View style={[styles.badge, { backgroundColor: "rgba(0,0,0,0.5)" }]}>
+                <Text style={[styles.badgeText, { color: "rgba(255,255,255,0.7)" }]}>{year}</Text>
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {title}
-          </Text>
-          {year ? <Text style={[styles.year, { color: colors.mutedForeground }]}>{year}</Text> : null}
+          <Text style={styles.title} numberOfLines={2}>{title}</Text>
           <Text style={[styles.overview, { color: colors.mutedForeground }]} numberOfLines={3}>
             {item.overview}
           </Text>
@@ -151,34 +137,16 @@ export default function TrailerCard({ item, isActive }: TrailerCardProps) {
               onPress={openTrailer}
               activeOpacity={0.8}
             >
-              <Feather name="play" size={14} color={colors.primary} />
+              <Feather name="play" size={13} color={colors.primary} />
               <Text style={[styles.watchBtnText, { color: colors.primary }]}>Watch Trailer</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <View style={styles.actionsCol}>
-          <ActionButton
-            icon="heart"
-            label={liked ? "Liked" : "Like"}
-            active={liked}
-            color={colors.primary}
-            onPress={handleLike}
-          />
-          <ActionButton
-            icon="bookmark"
-            label={saved ? "Saved" : "Save"}
-            active={saved}
-            color="#facc15"
-            onPress={handleSave}
-          />
-          <ActionButton
-            icon="share-2"
-            label="Share"
-            active={false}
-            color={colors.primary}
-            onPress={() => {}}
-          />
+          <ActionButton icon="heart" label={liked ? "Liked" : "Like"} active={liked} activeColor={colors.primary} onPress={handleLike} />
+          <ActionButton icon="bookmark" label={saved ? "Saved" : "Save"} active={saved} activeColor="#facc15" onPress={handleSave} />
+          <ActionButton icon="share-2" label="Share" active={false} activeColor={colors.primary} onPress={() => {}} />
         </View>
       </View>
     </View>
@@ -196,9 +164,9 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.42)",
   },
-  playButton: {
+  playHitArea: {
     position: "absolute",
     top: 0,
     left: 0,
@@ -208,9 +176,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   playCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: "rgba(244,62,92,0.85)",
     alignItems: "center",
     justifyContent: "center",
@@ -224,8 +192,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     paddingHorizontal: 16,
-    paddingTop: 60,
-    backgroundColor: "transparent",
+    paddingTop: 80,
+    background: "linear-gradient(to top, black, transparent)",
   },
   metaCol: {
     flex: 1,
@@ -235,6 +203,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6,
     marginBottom: 8,
+    flexWrap: "wrap",
   },
   badge: {
     flexDirection: "row",
@@ -251,14 +220,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#ffffff",
-    fontSize: 22,
+    fontSize: 21,
     fontFamily: "Inter_700Bold",
-    lineHeight: 28,
-    marginBottom: 4,
-  },
-  year: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    lineHeight: 27,
     marginBottom: 6,
   },
   overview: {
@@ -283,15 +247,25 @@ const styles = StyleSheet.create({
   },
   actionsCol: {
     alignItems: "center",
-    gap: 20,
-    paddingBottom: 8,
+    gap: 16,
+    paddingBottom: 4,
   },
   actionBtn: {
     alignItems: "center",
     gap: 4,
   },
+  actionCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   actionLabel: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    fontFamily: "Inter_500Medium",
   },
 });
