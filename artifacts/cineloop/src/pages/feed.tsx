@@ -50,6 +50,14 @@ export default function FeedPage() {
   const activeQuery = queries[activeTab];
   const rawItems = activeQuery.data?.results || [];
 
+  // AdSense trigger
+  useEffect(() => {
+    try {
+      // @ts-ignore
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (e) {}
+  }, [rawItems]);
+
   const setupObserver = useCallback(() => {
     observerRef.current?.disconnect();
 
@@ -154,12 +162,11 @@ export default function FeedPage() {
                     <div className="w-full max-w-md text-center">
                       <p className="text-xs text-white/50 mb-2">Sponsored</p>
 
-                      {/* Google AdSense slot */}
                       <ins
                         className="adsbygoogle"
-                        style={{ display: "block", width: "100%", height: "300px" }}
-                        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                        data-ad-slot="XXXXXXXXXX"
+                        style={{ display: "block" }}
+                        data-ad-client="ca-pub-5182890181989860"
+                        data-ad-slot="6599749875"
                         data-ad-format="auto"
                         data-full-width-responsive="true"
                       />
