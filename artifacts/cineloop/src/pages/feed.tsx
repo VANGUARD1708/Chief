@@ -25,17 +25,31 @@ export default function FeedPage() {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const queries = {
-    forYou: useGetTrendingAll({ page: 1 }, { query: { enabled: activeTab === "forYou", queryKey: getGetTrendingAllQueryKey({ page: 1 }) } }),
-    trending: useGetTrendingAll({ page: 2 }, { query: { enabled: activeTab === "trending", queryKey: getGetTrendingAllQueryKey({ page: 2 }) } }),
-    movies: useGetTrendingMovies({ page: 1 }, { query: { enabled: activeTab === "movies", queryKey: getGetTrendingMoviesQueryKey({ page: 1 }) } }),
-    series: useGetTrendingTv({ page: 1 }, { query: { enabled: activeTab === "series", queryKey: getGetTrendingTvQueryKey({ page: 1 }) } }),
-    anime: useGetAnime({ page: 1 }, { query: { enabled: activeTab === "anime", queryKey: getGetAnimeQueryKey({ page: 1 }) } }),
+    forYou: useGetTrendingAll(
+      { page: 1 },
+      { query: { enabled: activeTab === "forYou", queryKey: getGetTrendingAllQueryKey({ page: 1 }) } }
+    ),
+    trending: useGetTrendingAll(
+      { page: 2 },
+      { query: { enabled: activeTab === "trending", queryKey: getGetTrendingAllQueryKey({ page: 2 }) } }
+    ),
+    movies: useGetTrendingMovies(
+      { page: 1 },
+      { query: { enabled: activeTab === "movies", queryKey: getGetTrendingMoviesQueryKey({ page: 1 }) } }
+    ),
+    series: useGetTrendingTv(
+      { page: 1 },
+      { query: { enabled: activeTab === "series", queryKey: getGetTrendingTvQueryKey({ page: 1 }) } }
+    ),
+    anime: useGetAnime(
+      { page: 1 },
+      { query: { enabled: activeTab === "anime", queryKey: getGetAnimeQueryKey({ page: 1 }) } }
+    ),
   };
 
   const activeQuery = queries[activeTab];
-  const items = activeQuery.data?.results || [];
+  const rawItems = activeQuery.data?.results || [];
 
-  // ── IntersectionObserver for precise active card tracking ──
   const setupObserver = useCallback(() => {
     observerRef.current?.disconnect();
 
@@ -65,9 +79,8 @@ export default function FeedPage() {
   useEffect(() => {
     setupObserver();
     return () => observerRef.current?.disconnect();
-  }, [items, setupObserver]);
+  }, [rawItems, setupObserver]);
 
-  // Register card ref + observe
   const setCardRef = useCallback(
     (index: number) => (el: HTMLDivElement | null) => {
       if (el) {
@@ -81,7 +94,6 @@ export default function FeedPage() {
     []
   );
 
-  // Reset on tab change
   useEffect(() => {
     setActiveCardIndex(0);
     cardRefs.current.clear();
@@ -99,7 +111,7 @@ export default function FeedPage() {
   return (
     <div className="relative w-full h-[100dvh] bg-black text-white overflow-hidden">
 
-      {/* Top tab navigation overlay */}
+      {/* Tabs */}
       <div className="absolute top-0 left-0 right-0 z-40 pt-16 md:pt-8 pb-3 px-4 md:px-6 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none flex flex-col items-center">
         <div className="flex space-x-6 overflow-x-auto no-scrollbar pointer-events-auto max-w-full">
           {tabs.map((tab) => (
@@ -122,26 +134,50 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* Feed scroll container */}
+      {/* Feed */}
       <div
         ref={containerRef}
-        className="w-full h-[100dvh] overflow-y-scroll snap-y-mandatory no-scrollbar"
+        className="w-full h-[100dvh] overflow-y-scroll snap-y snap-mandatory no-scrollbar"
       >
         {activeQuery.isLoading ? (
-          <div className="w-full h-full flex items-center justify-center snap-center-item">
+          <div className="w-full h-full flex items-center justify-center snap-center">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
           </div>
-        ) : items.length > 0 ? (
-          items.map((item: TmdbMediaItem, index: number) => (
-            <div key={`${item.id}-${index}`} ref={setCardRef(index)}>
-              <FeedCard
-                item={item}
-                isActive={index === activeCardIndex}
-                isMuted={globalMuted}
-                onMuteToggle={() => setGlobalMuted((prev) => !prev)}
-              />
-            </div>
-          ))
+        ) : rawItems.length > 0 ? (
+          rawItems.map((item: TmdbMediaItem, index: number) => {
+            const showAd = index > 0 && index % 5 === 0;
+
+            return (
+              <div key={`${item.id}-${index}`}>
+                {showAd && (
+                  <div className="h-[100dvh] snap-start flex items-center justify-center bg-black text-white">
+                    <div className="w-full max-w-md text-center">
+                      <p className="text-xs text-white/50 mb-2">Sponsored</p>
+
+                      {/* Google AdSense slot */}
+                      <ins
+                        className="adsbygoogle"
+                        style={{ display: "block", width: "100%", height: "300px" }}
+                        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                        data-ad-slot="XXXXXXXXXX"
+                        data-ad-format="auto"
+                        data-full-width-responsive="true"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div ref={setCardRef(index)}>
+                  <FeedCard
+                    item={item}
+                    isActive={index === activeCardIndex}
+                    isMuted={globalMuted}
+                    onMuteToggle={() => setGlobalMuted((prev) => !prev)}
+                  />
+                </div>
+              </div>
+            );
+          })
         ) : null}
       </div>
     </div>
