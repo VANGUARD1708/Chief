@@ -16,47 +16,84 @@ import { Loader2 } from "lucide-react";
 
 type Tab = "forYou" | "trending" | "movies" | "series" | "anime";
 
-export default function FeedPage() {
+export default function Feed() {
   const [activeTab, setActiveTab] = useState<Tab>("forYou");
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const [globalMuted, setGlobalMuted] = useState(true);
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<TmdbMediaItem[]>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const queries = {
     forYou: useGetTrendingAll(
-      { page: 1 },
-      { query: { enabled: activeTab === "forYou", queryKey: getGetTrendingAllQueryKey({ page: 1 }) } }
+      { page },
+      { query: { enabled: activeTab === "forYou", queryKey: getGetTrendingAllQueryKey({ page }) } }
     ),
     trending: useGetTrendingAll(
-      { page: 2 },
-      { query: { enabled: activeTab === "trending", queryKey: getGetTrendingAllQueryKey({ page: 2 }) } }
+      { page },
+      { query: { enabled: activeTab === "trending", queryKey: getGetTrendingAllQueryKey({ page }) } }
     ),
     movies: useGetTrendingMovies(
-      { page: 1 },
-      { query: { enabled: activeTab === "movies", queryKey: getGetTrendingMoviesQueryKey({ page: 1 }) } }
+      { page },
+      { query: { enabled: activeTab === "movies", queryKey: getGetTrendingMoviesQueryKey({ page }) } }
     ),
     series: useGetTrendingTv(
-      { page: 1 },
-      { query: { enabled: activeTab === "series", queryKey: getGetTrendingTvQueryKey({ page: 1 }) } }
+      { page },
+      { query: { enabled: activeTab === "series", queryKey: getGetTrendingTvQueryKey({ page }) } }
     ),
     anime: useGetAnime(
-      { page: 1 },
-      { query: { enabled: activeTab === "anime", queryKey: getGetAnimeQueryKey({ page: 1 }) } }
+      { page },
+      { query: { enabled: activeTab === "anime", queryKey: getGetAnimeQueryKey({ page }) } }
     ),
   };
 
   const activeQuery = queries[activeTab];
   const rawItems = activeQuery.data?.results || [];
 
-  // AdSense trigger
+  // merge pages safely
+  useEffect(() => {
+    if (rawItems.length > 0) {
+      setItems((prev) => {
+        const merged = [...prev, ...rawItems];
+        const unique = Array.from(
+          new Map(merged.map((i) => [`${i.id}-${i.media_type}`, i])).values()
+        );
+        return unique;
+      });
+    }
+  }, [rawItems]);
+
+  // AdSense trigger (safe)
   useEffect(() => {
     try {
-      // @ts-ignore
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (e) {}
-  }, [rawItems]);
+      if ((window as any).adsbygoogle) {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }
+    } catch {}
+  }, [items]);
+
+  // infinite scroll
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (activeQuery.isFetching) return;
+
+      if (
+        container.scrollTop + container.clientHeight >=
+        container.scrollHeight - 600
+      ) {
+        setPage((p) => p + 1);
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [activeQuery.isFetching]);
 
   const setupObserver = useCallback(() => {
     observerRef.current?.disconnect();
@@ -73,21 +110,16 @@ export default function FeedPage() {
           }
         });
       },
-      {
-        root: container,
-        threshold: 0.6,
-      }
+      { root: container, threshold: 0.6 }
     );
 
-    cardRefs.current.forEach((el) => {
-      observerRef.current?.observe(el);
-    });
+    cardRefs.current.forEach((el) => observerRef.current?.observe(el));
   }, []);
 
   useEffect(() => {
     setupObserver();
     return () => observerRef.current?.disconnect();
-  }, [rawItems, setupObserver]);
+  }, [items, setupObserver]);
 
   const setCardRef = useCallback(
     (index: number) => (el: HTMLDivElement | null) => {
@@ -102,7 +134,10 @@ export default function FeedPage() {
     []
   );
 
+  // reset on tab change
   useEffect(() => {
+    setPage(1);
+    setItems([]);
     setActiveCardIndex(0);
     cardRefs.current.clear();
     if (containerRef.current) containerRef.current.scrollTop = 0;
@@ -118,7 +153,6 @@ export default function FeedPage() {
 
   return (
     <div className="relative w-full h-[100dvh] bg-black text-white overflow-hidden">
-
       {/* Tabs */}
       <div className="absolute top-0 left-0 right-0 z-40 pt-16 md:pt-8 pb-3 px-4 md:px-6 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none flex flex-col items-center">
         <div className="flex space-x-6 overflow-x-auto no-scrollbar pointer-events-auto max-w-full">
@@ -147,13 +181,13 @@ export default function FeedPage() {
         ref={containerRef}
         className="w-full h-[100dvh] overflow-y-scroll snap-y snap-mandatory no-scrollbar"
       >
-        {activeQuery.isLoading ? (
+        {activeQuery.isLoading && items.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center snap-center">
             <Loader2 className="w-12 h-12 text-primary animate-spin" />
           </div>
-        ) : rawItems.length > 0 ? (
-          rawItems.map((item: TmdbMediaItem, index: number) => {
-            const showAd = index > 0 && index % 5 === 0;
+        ) : (
+          items.map((item, index) => {
+            const showAd = index > 0 && index % 8 === 0;
 
             return (
               <div key={`${item.id}-${index}`}>
@@ -185,7 +219,13 @@ export default function FeedPage() {
               </div>
             );
           })
-        ) : null}
+        )}
+
+        {activeQuery.isFetching && (
+          <div className="w-full py-6 flex justify-center">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        )}
       </div>
     </div>
   );
